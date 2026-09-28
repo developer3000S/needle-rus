@@ -1,7 +1,7 @@
 [project]
 name = "cactus-needle"
 version = "3.0.1"
-description = "A 14MB foundation tool-calling model for tiny devices: inference, LoRA finetuning, and build."
+description = "Базовая модель вызова инструментов размером 14 МБ для крошечных устройств: инференс, тонкая настройка LoRA и сборка."
 requires-python = ">=3.9"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -43,4 +43,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["slow: end-to-end JAX build/finetune tests (init a tiny model)"]
+markers = ["slow: сквозные тесты сборки/тонкой настройки на JAX (инициализируют крошечную модель)"]

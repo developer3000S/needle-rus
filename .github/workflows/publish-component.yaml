@@ -1,13 +1,13 @@
 name: publish-component
 
-# Publishes the WebAssembly component of a Needle engine generation to GHCR as
-# an OCI artifact and signs it with Sigstore keyless signing, so consumers can
-# pull it with oras or wkg and verify the signature with cosign.
+# Публикует WebAssembly-компонент поколения движка Needle в GHCR как
+# артефакт OCI и подписывает его бесключевой подписью Sigstore, чтобы
+# потребители могли загружать его через oras или wkg и проверять подпись cosign.
 on:
   workflow_dispatch:
     inputs:
       generation:
-        description: Needle engine generation
+        description: Поколение движка Needle
         default: "2"
         type: choice
         options: ["2", "3"]
@@ -55,7 +55,7 @@ jobs:
             needle.component.wasm:application/vnd.wasm.component.v1+wasm \
             needle.wit:text/plain)
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
-          echo "published $image:$version@$digest"
+          echo "опубликован $image:$version@$digest"
       - run: cosign sign --yes "${{ steps.component.outputs.image }}@${{ steps.push.outputs.digest }}"
       - run: |
           cosign verify "${{ steps.component.outputs.image }}@${{ steps.push.outputs.digest }}" \

@@ -1,6 +1,6 @@
 -r requirements.txt
 
-# Training and checkpoint export dependencies
+# Зависимости для обучения и экспорта чекпоинтов
 numpy
 jax
 jaxlib
