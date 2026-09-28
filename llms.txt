@@ -1,35 +1,35 @@
 # Needle 3 (cactus-needle)
 
-> Needle 3 is a 29-121M parameter on-device model for tool calling, device control, and structured extraction. This Python package (`cactus-needle`) is inference + LoRA fine-tuning + export. Text goes in, a JSON tool call comes back; a byte-level grammar compiled from your schemas constrains every token, so the call is always well-formed. A sub-1 MB engine and the 35 MB `needle3.cact` weights are fetched once from Hugging Face and cached; nothing is compiled locally.
+> Needle 3 — это локальная модель на устройстве объёмом 29–121M параметров для вызова инструментов, управления устройствами и структурированного извлечения. Этот Python-пакет (`cactus-needle`) включает инференс + тонкую настройку LoRA + экспорт. На вход подаётся текст, на выходе — JSON-вызов инструмента; байтовая грамматика, скомпилированная из ваших схем, ограничивает каждый токен, поэтому вызов всегда корректно сформирован. Движок менее 1 МБ и 35 МБ весов `needle3.cact` один раз загружаются с Hugging Face и кэшируются; локально ничего не компилируется.
 
-This file is written for AI coding assistants. It is enough to write correct Needle code without reading the source. Copy the patterns; do not invent API that is not listed here. The human guides are at https://cactuscompute.com/blog/needle-python-docs, https://cactuscompute.com/blog/designing-tools-for-needle, https://cactuscompute.com/blog/needle-confidence, https://cactuscompute.com/blog/structured-extraction-with-needle, https://cactuscompute.com/blog/finetuning-needle, https://cactuscompute.com/blog/needle-supported-devices, https://cactuscompute.com/blog/cact-format and https://cactuscompute.com/blog/porting-needle.
+Этот файл написан для AI-ассистентов по коду. Его достаточно, чтобы писать правильный код для Needle, не читая исходники. Копируйте приведённые шаблоны; не выдумывайте API, которого здесь нет. Руководства для людей находятся по адресам https://cactuscompute.com/blog/needle-python-docs, https://cactuscompute.com/blog/designing-tools-for-needle, https://cactuscompute.com/blog/needle-confidence, https://cactuscompute.com/blog/structured-extraction-with-needle, https://cactuscompute.com/blog/finetuning-needle, https://cactuscompute.com/blog/needle-supported-devices, https://cactuscompute.com/blog/cact-format and https://cactuscompute.com/blog/porting-needle.
 
-## Install
+## Установка
 
 ```sh
-pip install cactus-needle                # runtime (inference only)
-pip install "cactus-needle[train]"       # adds JAX + training deps for finetune/build
+pip install cactus-needle                # среда выполнения (только инференс)
+pip install "cactus-needle[train]"       # добавляет JAX и зависимости обучения для finetune/build
 ```
 
-`import needle` is lightweight (no JAX). JAX is imported lazily and only by fine-tuning/export/build, and the training dependencies live behind the `[train]` extra - a runtime-only install cannot run `needle finetune`/`build`. For GPU training use `[train,gpu]` (CUDA) or `[train,metal]` (Apple Silicon). The engine binary auto-downloads from Hugging Face on first `Needle(...)` use.
+`import needle` лёгкий (без JAX). JAX импортируется лениво и только при тонкой настройке/экспорте/сборке, а зависимости обучения скрыты за дополнительным пакетом `[train]` — установка только для среды выполнения не может запускать `needle finetune`/`build`. Для обучения на GPU используйте `[train,gpu]` (CUDA) или `[train,metal]` (Apple Silicon). Двоичный файл движка автоматически загружается с Hugging Face при первом использовании `Needle(...)`.
 
-## Core API
+## Основной API
 
-- `needle.Needle(tools=None, system=None, weights=None, tool_index_path=None, buffer_size=65536)` - create an agent bound to one toolset.
-  - `tools`: list of decorated functions, Pydantic models, raw JSON-schema dicts, or a JSON string.
-  - `system`: optional environment-facts string (see System facts).
-  - `weights`: path to a tuned `.cact` to load instead of the baked base model.
-  - `tool_index_path`: path to persist tool embeddings when you declare many tools.
-- `agent.run(query, max_steps=8, max_new_tokens=512) -> dict` - full agentic loop: model picks calls, Needle executes your Python functions, feeds results back, returns the final response with the executed tool results attached as `results`.
-- `agent.complete(text, max_new_tokens=512) -> dict` - one turn; you execute the call and feed the result back yourself via the next `complete(...)`.
-- `agent.reset()` - rewind the conversation, keep the tools loaded.
-- `needle.tool` - decorator that turns a function into a tool schema (attached as `fn._needle_tool`); `@needle.tool(triggers=[r"\b(turn|switch)\b.*\b(on|off)\b"])` adds case-insensitive regexes that route a matching request to this tool and require a call; a triggered call ships even below the confidence floor (raw schemas take the same `"triggers"` list beside `description`).
-- `needle.Field(default=..., *, description, enum, const, ge, le, gt, lt, multiple_of, min_length, max_length, pattern, format, min_items, max_items, unique_items)` - per-argument constraints; attach inline with `typing.Annotated`.
-- `needle.extract(text, schema, system=None, max_new_tokens=512, weights=None)` - one-shot extraction; returns a Pydantic instance if `schema` is a model, else a dict (or `None` if nothing matched). `weights` selects a tuned `.cact` and defaults to whatever the engine already has loaded, so extraction inherits the active tuned model unless you pass another path.
+- `needle.Needle(tools=None, system=None, weights=None, tool_index_path=None, buffer_size=65536)` — создать агента, привязанного к одному набору инструментов.
+  - `tools`: список декорированных функций, моделей Pydantic, «сырых» словарей JSON-схемы или JSON-строка.
+  - `system`: необязательная строка фактов об окружении (см. Системные факты).
+  - `weights`: путь к настроенному `.cact`, который загружается вместо «вшитой» базовой модели.
+  - `tool_index_path`: путь для сохранения эмбеддингов инструментов, когда вы объявляете много инструментов.
+- `agent.run(query, max_steps=8, max_new_tokens=512) -> dict` — полный агентный цикл: модель выбирает вызовы, Needle исполняет ваши Python-функции, подставляет результаты обратно и возвращает финальный ответ, в который присоединены результаты исполненных инструментов как `results`.
+- `agent.complete(text, max_new_tokens=512) -> dict` — один ход; вызов вы исполняете сами и сами подставляете результат через следующий `complete(...)`.
+- `agent.reset()` — отмотать разговор назад, оставив инструменты загруженными.
+- `needle.tool` — декоратор, превращающий функцию в схему инструмента (прикрепляется как `fn._needle_tool`); `@needle.tool(triggers=[r"\b(turn|switch)\b.*\b(on|off)\b"])` добавляет регистронезависимые регулярные выражения, которые направляют совпавший запрос этому инструменту и требуют вызова; сработавший вызов отправляется даже ниже порога уверенности («сырые» схемы принимают такой же список `"triggers"` рядом с `description`).
+- `needle.Field(default=..., *, description, enum, const, ge, le, gt, lt, multiple_of, min_length, max_length, pattern, format, min_items, max_items, unique_items)` — ограничения на аргумент; прикрепляется прямо через `typing.Annotated`.
+- `needle.extract(text, schema, system=None, max_new_tokens=512, weights=None)` — однократное извлечение; возвращает экземпляр Pydantic, если `schema` — модель, иначе dict (или `None`, если ничего не совпало). `weights` выбирает настроенный `.cact` и по умолчанию берёт тот, что уже загружен в движок, поэтому извлечение наследует активную настроенную модель, если вы не передали другой путь.
 
-## Defining tools (three equivalent ways)
+## Определение инструментов (три эквивалентных способа)
 
-Decorator - signature gives types, docstring is the description, Google-style `Args:` gives per-argument docs, a default makes an argument optional, `Literal[...]` becomes a fixed choice set:
+Декоратор — сигнатура задаёт типы, docstring является описанием, Google-стиль `Args:` даёт документацию по аргументам, значение по умолчанию делает аргумент необязательным, `Literal[...]` превращается в фиксированный набор вариантов:
 
 ```python
 import needle
@@ -52,7 +52,7 @@ def send_money(amount: Annotated[float, needle.Field(gt=0, le=10000)], to: str):
 agent = needle.Needle(tools=[set_thermostat, send_money])
 ```
 
-Raw JSON schema (what the engine actually consumes):
+«Сырая» JSON-схема (то, что реально потребляет движок):
 
 ```python
 tools = [{
@@ -71,7 +71,7 @@ tools = [{
 agent = needle.Needle(tools=tools)
 ```
 
-Pydantic model (mainly for extraction):
+Модель Pydantic (в основном для извлечения):
 
 ```python
 from pydantic import BaseModel
@@ -81,9 +81,9 @@ class Invoice(BaseModel):
 invoice = needle.extract("Invoice from Acme Corp, $1,200.00", Invoice)  # -> Invoice(...)
 ```
 
-## Response shape
+## Форма ответа
 
-Every turn returns one dict:
+Каждый ход возвращает один dict:
 
 ```json
 {
@@ -99,97 +99,97 @@ Every turn returns one dict:
 }
 ```
 
-- `type` is `"call"` when the model wants tool calls (empty `function_calls` is the refusal for off-topic input), `"respond"` when the loop is finished; the answer is the tool results, no free text is generated.
-- `function_calls` is a list of `{"name", "arguments"}`. Read `arguments` directly; it is grammar-guaranteed to match your schema.
-- `reasoning` is a short unconstrained derivation of each argument from its source span.
-- `confidence` is a calibrated score in [0,1] (see Confidence gating).
-- `suppressed_calls` holds a call the engine withheld (confidence below 0.1 or a grounding gate fired); `function_calls` is then empty. Show it to the user to confirm, or treat the turn as a refusal.
-- `Needle(system=...)` prefixes the local `date:` fact automatically unless the text already carries a date; pass `auto_date=False` to opt out.
-- `validation.ungrounded`, when present, lists `tool.field` names whose value is not grounded in the input, including date arguments whose year matches nothing in the conversation or the `system` facts. `run()` refuses those calls with `{"error": "ungrounded field"}` unless `strict=False`.
-- `extract()` declares the record as the only tool and takes the record from `function_calls` or, when the engine withheld it, from `suppressed_calls`; `strict` handles grounding.
-- Arguments arrive after the engine's deterministic repair step, which grounds them in the request text: a full name in one of a first/last pair is split, a truncated phone number is completed, quoted titles are restored verbatim, place queries recover dropped words and a following street address, weekday and `March 4th` style dates resolve against the `date:` fact, polar enums and booleans follow the request verb (turn on, unlock, louder, turn down), an enum moves to the one option the request names, pickup and destination are read from `from X to Y` wording, a paired tool follows the request's polarity (`lock_door` to `unlock_door`), `by N` fills a tool's only number argument, an invented required slot is refilled from the request or its schema default, a required number with a default takes the default when no quantity is named, optional strings and numbers the conversation never states are dropped, empty optional strings and duplicate calls are dropped, and so is a call for something the request excludes or negates in its own clause.
+- `type` равен `"call"`, когда модель хочет вызвать инструменты (пустой `function_calls` — это отказ для запроса не по теме), и `"respond"`, когда цикл завершён; ответ — это результаты инструментов, свободный текст не генерируется.
+- `function_calls` — список `{"name", "arguments"}`. Читайте `arguments` напрямую: грамматика гарантирует соответствие вашей схеме.
+- `reasoning` — короткий неконтролируемый вывод каждого аргумента из его исходного фрагмента.
+- `confidence` — откалиброванная оценка в диапазоне [0,1] (см. Фильтрация по уверенности).
+- `suppressed_calls` содержит вызов, который движок удержал (уверенность ниже 0.1 или сработал контроль привязки к входу); тогда `function_calls` пуст. Покажите его пользователю для подтверждения или трактуйте ход как отказ.
+- `Needle(system=...)` автоматически добавляет локальный факт `date:`, если в тексте ещё нет даты; передайте `auto_date=False`, чтобы отключить это.
+- `validation.ungrounded`, если присутствует, перечисляет имена `tool.field`, значения которых не привязаны ко входу, включая даты, год которых не совпадает ни с чем в разговоре или в фактах `system`. `run()` отвергает такие вызовы с `{"error": "ungrounded field"}`, если не задано `strict=False`.
+- `extract()` объявляет запись как единственный инструмент и берёт запись из `function_calls` или, если движок её удержал, из `suppressed_calls`; `strict` отвечает за привязку к входу.
+- Аргументы приходят после детерминированного шага восстановления движка, который привязывает их к тексту запроса: полное имя из пары имя/фамилия разделяется, обрезанный номер телефона дополняется, заключённые в кавычки названия восстанавливаются дословно, поисковые запросы мест восстанавливают потерянные слова и идущий следом адрес, дни недели и даты вида `March 4th` разрешаются относительно факта `date:`, полярные enum и булевы значения следуют глаголу запроса (включи, разблокируй, громче, убавь), enum смещается к тому единственному варианту, который назван в запросе, точка посадки и назначения читаются из формулировки `from X to Y`, парный инструмент следует полярности запроса (`lock_door` → `unlock_door`), `by N` заполняет единственный числовой аргумент инструмента, выдуманное обязательное поле перезаполняется из запроса или его значения по умолчанию из схемы, обязательное число со значением по умолчанию получает default, когда количество не названо, необязательные строки и числа, которые разговор никогда не называл, отбрасываются, пустые необязательные строки и дублирующиеся вызовы тоже отбрасываются, как и вызов того, что запрос исключает или отрицает в собственной части предложения.
 
-## Behaviour contract (important for correct code)
+## Контракт поведения (важно для корректного кода)
 
-- Off-topic / unsupported request -> empty `function_calls` (a refusal). There is no free-text fallback. Always handle the empty case.
-- Arguments contain only values evidenced in the input. Optional fields with no evidence are omitted, not guessed. Do not assume a key exists.
-- Multi-turn: repeated `complete(...)` on the same agent continue one conversation; later arguments can depend on earlier tool results. Feed each result back as the next `complete(json.dumps(result))`.
-- One toolset per session. To change tools, make a new `Needle(...)`. `reset()` clears history but keeps the tools.
+- Запрос не по теме / без поддержки -> пустой `function_calls` (отказ). Свободнотекстовой запасной вариант отсутствует. Всегда обрабатывайте пустой случай.
+- Аргументы содержат только значения, подтверждённые во входе. Поля без подтверждения опускаются, а не угадываются. Не предполагайте, что ключ существует.
+- Многотходовость: повторяющиеся `complete(...)` на одном агенте продолжают один разговор; поздние аргументы могут зависеть от ранних результатов инструментов. Подавайте каждый результат обратно как следующий `complete(json.dumps(result))`.
+- Один набор инструментов на сессию. Чтобы сменить инструменты, создайте новый `Needle(...)`. `reset()` очищает историю, но оставляет инструменты.
 
-Driving the loop manually:
+Ручное управление циклом:
 
 ```python
 import json
 r = agent.complete("dim the living room to 30")
 if r["type"] == "call":
     out = set_lights(**r["function_calls"][0]["arguments"])
-    r = agent.complete(json.dumps(out))   # feed result back
+    r = agent.complete(json.dumps(out))   # подать результат обратно
 ```
 
-## Confidence gating
+## Фильтрация по уверенности
 
-`confidence` is the min of a post-hoc calibration head and the decode probability of the call. The head ships inside the archive when it was trained for those weights: the base model and platform fine-tunes have it, so they report a calibrated score; local `needle finetune` does not train it, `needle build --lora` leaves it out, and an agent constructed with such weights reports `confidence` as None. Pick a threshold per product; act at/above it, escalate below it:
+`confidence` — минимум из пост-хок головки калибровки и вероятности декодирования вызова. Головка поставляется внутри архива, если она была обучена для этих весов: у базовой модели и у настроенных на платформе она есть, поэтому они сообщают откалиброванную оценку; локальный `needle finetune` её не обучает, `needle build --lora` её исключает, и агент, собранный на таких весах, сообщает `confidence` как None. Выберите порог для каждого продукта; действуйте при/выше него, эскалируйте ниже него:
 
 ```python
 r = agent.complete(user_text)
 calls = r["function_calls"]
 held = r["suppressed_calls"]
 if calls and r["confidence"] >= 0.7:
-    execute(calls)                             # sure: act
+    execute(calls)                             # уверенно: действовать
 elif calls or held:
-    confirm(calls or held, r["reasoning"])     # unsure: show the call, ask
+    confirm(calls or held, r["reasoning"])     # неуверенно: показать вызов, спросить
 else:
-    say("I can't do that here")                # nothing to do: refuse
+    say("I can't do that here")                # делать нечего: отказать
 ```
 
-The engine already withholds calls below 0.1 into `suppressed_calls`; a tool with `triggers` always produces a call for a matching request, so the score decides whether to run it or confirm it.
+Движок уже удерживает вызовы ниже 0.1 в `suppressed_calls`; инструмент с `triggers` всегда производит вызов для совпавшего запроса, поэтому оценка решает — исполнить его или запросить подтверждение.
 
-## System facts (optional)
+## Системные факты (необязательно)
 
-Pass environment state as facts, never instructions. Recognized keys: `date`, `locale`, `device`, `battery`, `network`, `location`, `user`, `assistant`.
+Передавайте состояние окружения как факты, никогда — как инструкции. Распознаваемые ключи: `date`, `locale`, `device`, `battery`, `network`, `location`, `user`, `assistant`.
 
 ```python
 agent = needle.Needle(tools=tools, system="date: 2026-07-21 Tue 14:30; locale: en-US; device: phone")
 ```
 
-Relative language ("tomorrow at 7") resolves only when a `date:` fact licenses it. Omitting the system turn is safe.
+Относительные формулировки («завтра в 7») разрешаются только тогда, когда их лицензирует факт `date:`. Пропустить системный ход безопасно.
 
-## Tool retrieval (many tools)
+## Поиск инструментов (много инструментов)
 
-With more than 5 declared tools, a built-in retrieval head renders only the top-5 per turn and constrains the grammar to that subset. Persist embeddings across runs:
+При более чем 5 объявленных инструментах встроенная головка поиска показывает за ход только топ-5 и ограничивает грамматику этой подобластью. Сохраняйте эмбеддинги между запусками:
 
 ```python
 agent = needle.Needle(tools=big_catalogue, tool_index_path="tools.idx")
 ```
 
-## Fine-tuning (CLI)
+## Тонкая настройка (CLI)
 
-LoRA on the frozen base, merged at export. Data is JSONL, one example per line; `reasoning` optional, off-topic example has `answers: []`:
+LoRA на замороженной базе, слияние при экспорте. Данные — JSONL, по одному примеру на строку; `reasoning` необязателен, пример не по теме имеет `answers: []`:
 
 ```json
 {"query": "dim the kitchen to 10", "tools": [{"name": "set_lights", "parameters": {"type": "object", "properties": {"room": {"type": "string"}, "brightness": {"type": "integer"}}, "required": ["room"]}}], "answers": [{"name": "set_lights", "arguments": {"room": "kitchen", "brightness": 10}}]}
 ```
 
 ```sh
-pip install "cactus-needle[train]"                                                 # training deps (JAX, flax, optax)
+pip install "cactus-needle[train]"                                                 # зависимости обучения (JAX, flax, optax)
 export OPENROUTER_API_KEY=sk-or-...
-needle generate-data --tools my_tools.json --num-samples 500 --output data.jsonl   # optional
-needle finetune data.jsonl --epochs 3 --generate 300                                # LoRA; auto-downloads base
+needle generate-data --tools my_tools.json --num-samples 500 --output data.jsonl   # опционально
+needle finetune data.jsonl --epochs 3 --generate 300                                # LoRA; база скачивается автоматически
 needle build checkpoints/needle3.safetensors --lora checkpoints/needle_lora.safetensors --out my.cact
 ```
 
-Run a tuned model - the engine is weights-agnostic:
+Запуск настроенной модели — движок не зависит от весов:
 
 ```python
 agent = needle.Needle(weights="my.cact", tools=[...])
 agent.run("...")
 ```
 
-Options: `finetune --lora-rank 16 --lora-alpha 32 --lr 1e-4 --batch-size 16 --max-len 1024 --val-split 0.1 --checkpoint <base.safetensors> --checkpoint-dir <dir> --out <adapter.safetensors> --generate <n> --model <id> --workers <n>`; `--model` defaults to `deepseek/deepseek-flash-latest`, `--workers` defaults to `8`, and `--checkpoint-dir` defaults to `checkpoints`. `--generate` synthesizes extra examples through the configured OpenRouter endpoint before training. `build --bits 2|4 --upload` (with `NEEDLE_HF_REPO=<you>/<model>`).
+Опции: `finetune --lora-rank 16 --lora-alpha 32 --lr 1e-4 --batch-size 16 --max-len 1024 --val-split 0.1 --checkpoint <base.safetensors> --checkpoint-dir <dir> --out <adapter.safetensors> --generate <n> --model <id> --workers <n>`; `--model` по умолчанию `deepseek/deepseek-flash-latest`, `--workers` по умолчанию `8`, `--checkpoint-dir` по умолчанию `checkpoints`. `--generate` синтезирует дополнительные примеры через настроенную конечную точку OpenRouter перед обучением. `build --bits 2|4 --upload` (с `NEEDLE_HF_REPO=<you>/<model>`).
 
-## Platform (hosted fine-tuning)
+## Платформа (хостируемая тонкая настройка)
 
-The hosted platform at https://cactuscompute.com/v1 trains every size from 2 layers up on GPUs, scores each on your test file, and serves the `.cact` files; the API reference is https://cactuscompute.com/llms/api. The package drives it with a key from https://cactuscompute.com/dashboard/api-keys in `NEEDLE_API_KEY` (never print it). Files are chat-format JSONL: `messages` (OpenAI chat turns, tool calls on the assistant turn as `tool_calls` with `arguments` as a JSON string) and OpenAI-form `tools`.
+Хостируемая платформа https://cactuscompute.com/v1 обучает на GPU все размеры начиная с 2 слоёв, оценивает каждый на вашем тестовом файле и отдаёт `.cact`-файлы; справочник API — https://cactuscompute.com/llms/api. Пакет управляет ею ключом из https://cactuscompute.com/dashboard/api-keys в переменной `NEEDLE_API_KEY` (никогда его не печатайте). Файлы — JSONL в чат-формате: `messages` (ходы OpenAI chat, вызовы инструментов в ходе ассистента как `tool_calls`, где `arguments` — JSON-строка) и `tools` в формате OpenAI.
 
 ```sh
 needle platform finetune train.jsonl validation.jsonl test.jsonl [--max-depth N] [--suffix name] [--out dir] [--depth N] [--no-wait]
@@ -200,55 +200,54 @@ needle download model-<id> [--depth N] [--out dir]
 
 ```python
 from needle.platform import Platform, PlatformError
-client = Platform()                                   # key from NEEDLE_API_KEY, or Platform(api_key=...)
-client.billing()                                      # plan, limits, usage; a fine-tune spends one job at submission
+client = Platform()                                   # ключ из NEEDLE_API_KEY или Platform(api_key=...)
+client.billing()                                      # тариф, лимиты, использование; тонкая настройка расходует одно задание при отправке
 job = client.finetune(["train.jsonl"], ["validation.jsonl"], ["test.jsonl"], max_depth=20, suffix="smart-home")
-job = client.wait(job, poll=10)                       # raises PlatformError(code) if the job fails
+job = client.wait(job, poll=10)                       # бросает PlatformError(code), если задание падает
 job["evaluations"]                                    # [{depth, validation: {correct, total, excluded}, test: {...}}, ...]
-client.download(job["fine_tuned_model"], "models")    # every size as <name>-<depth>L.cact; depth=8 for one
+client.download(job["fine_tuned_model"], "models")    # каждый размер как <name>-<depth>L.cact; depth=8 для одного
 gen = client.wait(client.generate(tools, 1000, description="...", messages=["..."], suffix="smart-home"))
 client.download_file(gen["files"][0]["id"], "train.jsonl")
 ```
 
-Submission prints the job's dashboard page, https://cactuscompute.com/dashboard/jobs/<id>; Ctrl-C leaves the job running and `needle platform jobs <id> --wait --out dir` resumes the wait and the download. `PlatformError.code` is the API's stable code (`unauthorized`, `subscription_required`, `quota_exceeded`, `job_active`, `rate_limited`, `invalid_request`, ...), with `.param` and `.url` when the API sends them; `rate_limited` is retried after `Retry-After` automatically. Ask before every `finetune` or `generate`: both spend allowance at submission. Platform files also train locally: `needle finetune train.jsonl` reads single-turn chat-format lines as well as the `query`/`answers` form.
+При отправке печатается страница задания на дашборде, https://cactuscompute.com/dashboard/jobs/<id>; Ctrl-C оставляет задание работающим, а `needle platform jobs <id> --wait --out dir` возобновляет ожидание и скачивание. `PlatformError.code` — стабильный код API (`unauthorized`, `subscription_required`, `quota_exceeded`, `job_active`, `rate_limited`, `invalid_request`, ...), с `.param` и `.url`, когда API их присылает; `rate_limited` автоматически повторяется после `Retry-After`. Спрашивайте разрешение перед каждым `finetune` или `generate`: оба расходуют квоту при отправке. Файлы платформы также обучаются локально: `needle finetune train.jsonl` читает одноходовые строки чат-формата так же, как и форму `query`/`answers`.
 
-## Playground (browser)
+## Playground (браузер)
 
-Hosted at https://cactuscompute.com/needle: preset demos, editable tools/prompt, multi-turn follow-ups, and a "Finetune on these tools" button that runs the pipeline above and returns a downloadable `.cact`. `needle playground [--weights my.cact]` serves the same UI locally at http://127.0.0.1:7860. Local fine-tuning is 4-bit; the 2-bit post-training and quantisation behind the shipped model, enriched with Cactus proprietary datasets, run on the Cactus Platform at https://cactuscompute.com/dashboard.
+Хостится на https://cactuscompute.com/needle: готовые демо, редактируемые инструменты/промпт, многотходовые уточнения и кнопка «Finetune on these tools», которая прогоняет описанный выше конвейер и возвращает скачиваемый `.cact`. `needle playground [--weights my.cact]` раздаёт тот же интерфейс локально на http://127.0.0.1:7860. Локальная тонкая настройка — 4-битная; 2-битное пост-обучение и квантизация стоящей за поставляемой модели, обогащённая собственными датасетами Cactus, выполняются на Cactus Platform по адресу https://cactuscompute.com/dashboard.
 
-## Environments (ready-made tool surfaces)
+## Окружения (готовые наборы инструментов)
 
-`needle.environments` ships six: `smart_home`, `media_player`, `productivity`, `wearable`, `kitchen_appliance`, `data_capture`. Each module has `TOOLS`, `SYSTEM`, a lazily constructed `agent`, `TEST_CASES`, and `run_tests(min_confidence=0.0)`; `python -m needle.environments.smart_home` runs its frozen acceptance suite.
+`needle.environments` поставляет шесть: `smart_home`, `media_player`, `productivity`, `wearable`, `kitchen_appliance`, `data_capture`. Каждый модуль содержит `TOOLS`, `SYSTEM`, лениво собираемого `agent`, `TEST_CASES` и `run_tests(min_confidence=0.0)`; `python -m needle.environments.smart_home` запускает свой замороженный приемочный набор тестов.
 
 ```python
 from needle.environments import smart_home
 smart_home.agent.complete("dim the study lights to 30 percent")
 ```
 
-`run_tests()` returns `True` when at least `round(0.9 * len(TEST_CASES))` cases pass - 29 of the shipped 32 - and no `critical` case fails; `min_confidence` treats a call below the threshold as a refusal. A suite scores the model's output, not the harness, so a red suite usually reports the model's fit to the tool surface rather than a defect in the code that scores it (rule out a reply shape the harness does not expect before blaming the model). The threshold and the `critical` effect are pinned by engine-free tests in `tests/test_environments.py`. The shipped base model does not pass all six suites on engine 2.0.4 at the default gate: five fall short, missing calls the query did state and inventing values it did not.
+`run_tests()` возвращает `True`, когда проходят не менее `round(0.9 * len(TEST_CASES))` случаев — 29 из поставляемых 32 — и ни один случай `critical` не падает; `min_confidence` трактует вызов ниже порога как отказ. Набор оценивает вывод модели, а не обвязку, поэтому красный набор обычно говорит о соответствии модели поверхности инструментов, а не о дефекте в коде, который оценивает (прежде чем винить модель, исключите форму ответа, которую обвязка не ожидает). Порог и эффект `critical` закреплены тестами без движка в `tests/test_environments.py`. Поставляемая базовая модель не проходит все шесть наборов на движке 2.0.4 при пороге по умолчанию: пять не дотягивают, теряя вызовы, которые запрос явно содержал, и выдумывая значения, которых в нём не было.
 
-Adapt by swapping the Literal values for your own and keeping the shapes: closed sets as enums, bounded numbers, verbatim copy for free text, five tools or fewer.
+Адаптируйте, подставив свои значения Literal и сохранив формы: закрытые множества как enum, ограниченные числа, дословное копирование для свободного текста, не больше пяти инструментов.
 
-## CLI summary
+## Сводка CLI
 
-- `needle run --checkpoint <base.safetensors> --query "..." --tools tools.json` - JAX reference inference from a checkpoint (dev path; normal inference is the Python `Needle` API above).
-- `needle generate-data` / `needle finetune` / `needle build [checkpoint] [--lora adapter] [--layers N] [--platform <folder>] [--out <path>]` - the fine-tuning pipeline; fine-tuning runs at the full 20 layers, `build` merges the adapter, slices the `--layers` rung (default 20), exports at 4 bits, and fetches the published `needle3.cact` on every run (without an adapter at full depth it ships that published 2-bit archive as is). `--platform` also downloads that platform's engine and header and makes `--out` a folder holding them plus `needle3.cact`.
-- `needle playground` - the browser UI locally (hosted at https://cactuscompute.com/needle).
-- `needle fetch [--platform-tag <tag>] [--out <dir>]` - pre-download the inference engine for this machine (or another platform) into the cache; prints the path. For air-gapped devices, also see `NEEDLE3_LIB_PATH` and `HF_HUB_OFFLINE` at https://cactuscompute.com/blog/needle-python-docs.
-- `needle platform finetune | generate | jobs | models | files | billing` - the hosted platform from the CLI (section above).
-- `needle download needle3 | needle3.safetensors | model-<id> | <org>/<repo>[/<file>.cact] | <platform> [--out <dir>]` - pull the base Needle 3 archive, a checkpoint to fine-tune, a platform-trained model by id (`--depth N` for one size), a published `.cact` (single-archive repos need only `<org>/<repo>`), or pass a platform folder name (`macos-arm64`, `linux-x86_64`, `wasm`, `wasm-component`, ...) to fetch that platform's engine files into `<out>/<platform>/`. Native runners are marked executable; `wasm-component` contains the WASI Preview 2 component and WIT contract.
+- `needle run --checkpoint <base.safetensors> --query "..." --tools tools.json` — эталонный инференс на JAX из чекпоинта (путь для разработки; обычный инференс — описанный выше Python API `Needle`).
+- `needle generate-data` / `needle finetune` / `needle build [checkpoint] [--lora adapter] [--layers N] [--platform <папка>] [--out <путь>]` — конвейер тонкой настройки; обучение идёт на полных 20 слоях, `build` сливает адаптер, вырезает ступень `--layers` (по умолчанию 20), экспортирует в 4 бита и при каждом запуске скачивает опубликованный `needle3.cact` (без адаптера на полной глубине он просто поставляет этот опубликованный 2-битный архив как есть). `--platform` дополнительно скачивает движок и заголовок этой платформы и делает из `--out` папку, содержащую их плюс `needle3.cact`.
+- `needle playground` — браузерный интерфейс локально (хостится на https://cactuscompute.com/needle).
+- `needle fetch [--platform-tag <tag>] [--out <dir>]` — заранее скачать движок инференса для этой машины (или другой платформы) в кэш; печатает путь. Для устройств без сети также см. `NEEDLE3_LIB_PATH` и `HF_HUB_OFFLINE` на https://cactuscompute.com/blog/needle-python-docs.
+- `needle platform finetune | generate | jobs | models | files | billing` — хостируемая платформа из CLI (раздел выше).
+- `needle download needle3 | needle3.safetensors | model-<id> | <org>/<repo>[/<file>.cact] | <platform> [--out <dir>]` — получить базовый архив Needle 3, чекпоинт для тонкой настройки, модель, обученную на платформе, по id (`--depth N` для одного размера), опубликованный `.cact` (для репозиториев с одним архивом достаточно `<org>/<repo>`), либо передать имя папки платформы (`macos-arm64`, `linux-x86_64`, `wasm`, `wasm-component`, ...), чтобы скачать файлы движка этой платформы в `<out>/<platform>/`. Нативные раннеры помечаются исполняемыми; `wasm-component` содержит компонент WASI Preview 2 и контракт WIT.
 
-## Common mistakes to avoid
+## Частые ошибки, которых стоит избегать
 
-- Do not expect free-text answers to arbitrary questions; unsupported input returns an empty call. Handle it.
-- Do not read `arguments` keys that were not evidenced in the input; optional fields may be absent.
-- Do not create one `Needle` per turn for a conversation; reuse the instance so context carries. New tools = new instance.
-- `import needle` does not import JAX; only `needle finetune`/`build` do.
-- `weights=` expects a `.cact` (from `needle build`), not a `.safetensors` checkpoint. `Needle(tools=...)` runs the base Needle 3 archive (fetched once, cached next to the engine); pass `generation=2` for the embedded Needle 2 engine.
-- Checkpoints and adapters must be `.safetensors`; pickle (`.pkl`) is not supported and will raise a `ValueError`. The base is `checkpoints/needle3.safetensors` (20 layers); `needle build --layers N` exports any rung from 2 to 20 of it.
-- The engine cannot unload weights: once a tuned `.cact` is bound, constructing or calling a base-model agent raises instead of silently answering with those weights. Construct agents that want the base model before any tuned one, or run them in separate processes.
+- Не ждите свободнотекстовых ответов на произвольные вопросы; неподдерживаемый вход возвращает пустой список вызовов. Обрабатывайте это.
+- Не читайте в `arguments` ключи, которых не было во входе; необязательные поля могут отсутствовать.
+- Не создавайте по одному `Needle` на ход для разговора; переиспользуйте экземпляр, чтобы контекст сохранялся. Новые инструменты = новый экземпляр.
+- `import needle` не импортирует JAX; это делают только `needle finetune`/`build`.
+- `weights=` ожидает `.cact` (из `needle build`), а не чекпоинт `.safetensors`. `Needle(tools=...)` запускает базовый архив Needle 3 (скачивается один раз, кэшируется рядом с движком); передайте `generation=2` для встроенного движка Needle 2.
+- Чекпоинты и адаптеры должны быть `.safetensors`; pickle (`.pkl`) не поддерживается и вызовет `ValueError`. База — `checkpoints/needle3.safetensors` (20 слоёв); `needle build --layers N` экспортирует любую ступень от 2 до 20 из неё.
+- Движок не может выгрузить веса: после привязки настроенного `.cact` создание или вызов агента базовой модели приводит к ошибке вместо молчаливого ответа этими весами. Создавайте агентов, которым нужна базовая модель, раньше любых настроенных, или запускайте их в отдельных процессах.
 
-## Telemetry
+## Телеметрия
 
-Anonymous usage counts only (function name, package version, OS, random install id - never prompts, outputs, or data). Opt out with `NEEDLE_TELEMETRY=0` or `DO_NOT_TRACK=1`; `CI` environments are excluded automatically.
-```
+Только анонимные счётчики использования (имя функции, версия пакета, ОС, случайный идентификатор установки — никогда промпты, выводы или данные). Отключение через `NEEDLE_TELEMETRY=0` или `DO_NOT_TRACK=1`; окружения `CI` исключаются автоматически.

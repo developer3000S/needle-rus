@@ -11,7 +11,7 @@ if %errorlevel% == 0 (
 )
 
 if "%PYTHON_CMD%"=="" (
-    echo Python ^>= 3.9 is required. Install it from https://www.python.org/
+    echo Требуется Python версии 3.9 или новее. Скачайте его с https://www.python.org/
     exit /b 1
 )
 

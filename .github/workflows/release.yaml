@@ -1,7 +1,8 @@
-name: release
+name: релиз
 
-# Daily release train at 09:00 America/Los_Angeles. A day where nothing landed
-# on main is a no-op: the release job sees HEAD already tagged and skips.
+# Ежедневный «поезд релизов» в 09:00 America/Los_Angeles. Если за день в main
+# ничего не попало, поезд не делает ничего: задача release видит, что HEAD уже
+# помечен тегом, и пропускает шаг.
 on:
   schedule:
     - cron: "0 16 * * *"
@@ -24,11 +25,11 @@ jobs:
       - id: check
         run: |
           if [ "${{ github.event_name }}" != "schedule" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"        # manual runs always proceed
+            echo "run=true" >> "$GITHUB_OUTPUT"        # ручной запуск всегда продолжается
           elif [ "$(TZ=America/Los_Angeles date +%H)" = "09" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"        # 09:00 Pacific
+            echo "run=true" >> "$GITHUB_OUTPUT"        # 09:00 по тихоокеанскому времени
           else
-            echo "run=false" >> "$GITHUB_OUTPUT"       # the other DST candidate; skip
+            echo "run=false" >> "$GITHUB_OUTPUT"       # второй кандидат из-за перевода часов; пропуск
           fi
 
   test:
@@ -48,7 +49,7 @@ jobs:
     if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: write        # pushes the vX.Y.Z release tag
+      contents: write        # публикует релизный тег vX.Y.Z
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -61,12 +62,13 @@ jobs:
       - id: version
         run: |
           last=$(git tag --list 'v*' --sort=-v:refname | head -1)
-          # New release tags include a metadata-only child commit. Its parent
-          # is the main commit that was tested and published.
+          # Новые релизные теги включают дочерний коммит с одними только
+          # метаданными. Его родитель — коммит в main, который был протестирован
+          # и опубликован.
           source=""
           if [ -n "$last" ]; then
             source=$(git rev-parse "$last^{commit}")
-            if [ "$source" != "$(git rev-parse HEAD)" ] && [ "$(git log -1 --format=%s "$last")" = "chore: release ${last#v}" ]; then
+            if [ "$source" != "$(git rev-parse HEAD)" ] && [ "$(git log -1 --format=%s "$last")" = "chore: выпуск ${last#v}" ]; then
               source=$(git rev-parse "$last^")
             fi
           fi
@@ -74,12 +76,13 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # A manual bump on main or a publish whose tag step failed leaves
-          # PyPI ahead of the tags; the next version follows whichever is newer.
+          # Ручной bump версии в main или публикация, на шаге тегирования которой
+          # что-то сорвалось, оставляют PyPI впереди тегов; следующая версия
+          # отсчитывается от более свежего из двух.
           published=$(curl -sf https://pypi.org/pypi/cactus-needle/json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read(), strict=False)["info"]["version"])' || true)
           current=$(printf '%s\n%s\n' "${last#v}" "$published" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
-          # A version in pyproject.toml above everything published is a deliberate
-          # bump (a new major or minor): release exactly that, otherwise step the patch.
+          # Версия в pyproject.toml выше всего опубликованного — это осознанный
+          # bump (новая major или minor): выпускаем ровно её, иначе наращиваем patch.
           declared=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
           if [ "$(printf '%s\n%s\n' "$current" "$declared" | sort -V | tail -1)" = "$declared" ] && [ "$declared" != "$current" ]; then
             echo "next=$declared" >> "$GITHUB_OUTPUT"
@@ -91,8 +94,8 @@ jobs:
           next="${{ steps.version.outputs.next }}"
           sed -i "s/^version = \".*\"/version = \"$next\"/" pyproject.toml
           sed -i "s/^__version__ = \".*\"/__version__ = \"$next\"/" needle/__init__.py
-      # The engine wheels live on the Hub and are uploaded separately. Publishing a
-      # pin whose wheels are not there yet makes every fresh install fail at first use.
+      # Колёса движка живут на Hub и загружаются отдельно. Опубликовать привязку,
+      # колёса которой ещё не там, заставит каждую свежую установку падать при первом использовании.
       - if: steps.version.outputs.skip != 'true'
         run: |
           pip install huggingface_hub
@@ -100,9 +103,9 @@ jobs:
           from needle.agent import fetch
           missing = fetch.unpublished_engine_wheels()
           if missing:
-              raise SystemExit("engine wheels missing from the Hub, refusing to publish:\n  "
+              raise SystemExit("на Hub не хватает колёс движка, публикация отменена:\n  "
                                + "\n  ".join(missing))
-          print("every pinned engine is published")
+          print("каждый закреплённый движок опубликован")
           PY
       - if: steps.version.outputs.skip != 'true'
         run: python -m build
@@ -114,11 +117,11 @@ jobs:
           skip-existing: true
       - if: steps.version.outputs.skip != 'true'
         run: |
-          # Preserve the exact versioned source used for the distribution.
-          # Keep the release-only commit on the tag, without writing to main.
+          # Сохраняем ровно тот версионированный исходник, из которого собран дистрибутив.
+          # Релизный коммит остаётся только на теге, без записи в main.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pyproject.toml needle/__init__.py
-          git diff --cached --quiet || git commit -m "chore: release ${{ steps.version.outputs.next }}"
+          git diff --cached --quiet || git commit -m "chore: выпуск ${{ steps.version.outputs.next }}"
           git tag "v${{ steps.version.outputs.next }}"
           git push origin "v${{ steps.version.outputs.next }}"

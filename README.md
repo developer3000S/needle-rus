@@ -1,32 +1,32 @@
 ![Needle](assets/banner.svg)
 
-A foundation model for mobiles, wearables, robots, smart home, automotive and microcontrollers. The whole model is a single 8-29 MB binary built on our Simple Attention Network, and we trade general chat capacity to beat models 10x its size on mobile tool calls and match 2-3x bigger models on extraction.
+Базовая модель для мобильных устройств, носимой электроники, роботов, умного дома, автомобилей и микроконтроллеров. Вся модель — это один двоичный файл размером 8–29 МБ, построенный на нашей Simple Attention Network; мы жертвуем общей способностью к чату, чтобы обходить модели в 10 раз крупнее на мобильных вызовах инструментов и догонять модели в 2–3 раза крупнее на извлечении данных.
 
-- **Tool calls**: given the functions your app exposes, Needle picks the right ones and fills every argument from what the user said. Ask for two things and you get two calls in order; ask for something no tool covers and you get an empty list, not a guess.
-- **Structured extraction**: declare a shape, hand over messy text, get typed fields back: an invoice, a booking, a notification, a form. The decode grammar guarantees the output parses, and extraction generalises to classification.
-- **Text embedding**: the same model returns a vector for a sentence, so an app can search, match and route locally.
+- **Вызовы инструментов**: зная функции, которые публикует ваше приложение, Needle выбирает нужные и заполняет все аргументы из слов пользователя. Попросите две вещи — получите два вызова по порядку; попросите то, что не покрывается ни одним инструментом, — получите пустой список, а не догадку.
+- **Структурированное извлечение**: объявите форму, передайте неструктурированный текст — и получите типизированные поля: счёт, бронирование, уведомление, форму. Грамматика декодирования гарантирует, что вывод разбирается корректно, а извлечение обобщается до классификации.
+- **Векторные представления текста**: та же модель возвращает вектор для предложения, поэтому приложение может искать, сопоставлять и маршрутизировать локально.
 
-![Needle 3 at a glance](assets/model.svg)
+![Needle 3 с одного взгляда](assets/model.svg)
 
-Needle 3 is a Laddered Simple Attention Network: a Monarch Hadamard MLP in place of the FFN, GQA attention with causal conv taps, engram n-gram memory read by gather, and multi-lane hyper-connections, trained so that every depth from 2 to 20 layers is a deployable model. Most of its parameters sit in the engram, so the 121M model does the arithmetic of a 50M one. A byte-level grammar compiled from your schemas constrains every token, and every response carries a calibrated confidence score from a learned head. The architecture diagram is on the [release page](https://cactuscompute.com/needle).
+Needle 3 — это «лестничная» Simple Attention Network: Monarch Hadamard MLP вместо FFN, GQA-внимание с причинными свёрточными отводами, n-gram память engram, считываемая через gather, и многополосные гипер-связи; модель обучена так, что каждая глубина от 2 до 20 слоёв является развёртываемой моделью. Большая часть параметров находится в engram, поэтому модель на 121M выполняет арифметику модели на 50M. Байтовая грамматика, скомпилированная из ваших схем, ограничивает каждый токен, а каждый ответ несёт откалиброванную оценку уверенности от обученной головы. Схема архитектуры — на [странице релиза](https://cactuscompute.com/needle).
 
-## Benchmarks
+## Бенчмарки
 
-Tool calling is exact-match accuracy on the full test splits, extraction is field micro-F1 on the full test splits.
+Для вызова инструментов — точность exact-match на полных тестовых выборках, для извлечения — полевая micro-F1 на полных тестовых выборках.
 
-![Needle 3 against baselines on six benchmarks](assets/benchmarks.svg)
+![Needle 3 против базовых моделей на шести бенчмарках](assets/benchmarks.svg)
 
-The interactive frontier plot, the architecture and the fine-tuning results are at [cactuscompute.com/needle](https://cactuscompute.com/needle).
+Интерактивный график фронтира, архитектура и результаты тонкой настройки — на [cactuscompute.com/needle](https://cactuscompute.com/needle).
 
-## Get started
+## Начните работу
 
 ```sh
 pip install cactus-needle
 ```
 
-Try it in the browser at [cactuscompute.com/needle](https://cactuscompute.com/needle); the weights and every platform engine are on [Hugging Face](https://huggingface.co/Cactus-Compute/needle3).
+Попробуйте в браузере на [cactuscompute.com/needle](https://cactuscompute.com/needle); веса и движки для всех платформ находятся на [Hugging Face](https://huggingface.co/Cactus-Compute/needle3).
 
-Decorate a function: the signature gives the argument types, the docstring is the tool description, and `run()` completes the loop, executing your function and returning its results.
+Задекорируйте функцию: сигнатура задаёт типы аргументов, docstring — описание инструмента, а `run()` замыкает цикл, исполняя вашу функцию и возвращая её результаты.
 
 ```python
 import needle
@@ -41,41 +41,41 @@ print(agent.run("what's it like in Lagos right now?")["results"])
 # [{'city': 'Lagos', 'temp_c': 27, 'sky': 'clear'}]
 ```
 
-Every turn returns one JSON object with `function_calls`, the model's `reasoning` and a calibrated `confidence`; an off-topic request returns an empty list rather than a guess. `needle.Needle(tools=[...], generation=2)` keeps running Needle 2 for existing deployments.
+Каждый ход возвращает один JSON-объект с `function_calls`, `reasoning` модели и откалиброванной `confidence`; запрос не по теме возвращает пустой список, а не догадку. `needle.Needle(tools=[...], generation=2)` продолжает использовать Needle 2 для существующих развёртываний.
 
-## Guides
+## Руководства
 
-- [How to design tools for Needle 3](https://cactuscompute.com/blog/designing-tools-for-needle): one tool per action, names users would say, formats in descriptions, constraints in the grammar, triggers.
-- [Leveraging Needle's confidence](https://cactuscompute.com/blog/needle-confidence): what the score measures, what the engine withholds, and routing on act, confirm or refuse.
-- [Structured JSON extraction with Needle](https://cactuscompute.com/blog/structured-extraction-with-needle): the record as the only tool, typed results, classification with enums.
-- [Fine-tuning Needle](https://cactuscompute.com/blog/finetuning-needle): the data format, the commands, reading the loss, sizing the dataset.
-- [Needle Python docs](https://cactuscompute.com/blog/needle-python-docs): the API, the response shape, the behaviour contract, system facts, tool retrieval, offline devices, environments, the CLI.
-- [What devices are supported on Needle](https://cactuscompute.com/blog/needle-supported-devices): every platform folder, the CLI runner, the C API, the browser, WASI, air-gapped setup.
-- [The .cact format](https://cactuscompute.com/blog/cact-format): the file the engine maps and reads in place, Cactus Quants at 2.125 bits per weight, and how to parse it yourself.
-- [Porting Needle 3](https://cactuscompute.com/blog/porting-needle): notes for writing your own runtime, the oracle to test against, the tensor order the container promises, the prompt on the wire, the ladder rule, retrieval with `needle_embed`.
+- [Как проектировать инструменты для Needle 3](https://cactuscompute.com/blog/designing-tools-for-needle): один инструмент на действие, названия, как их скажет пользователь, форматы в описаниях, ограничения в грамматике, триггеры.
+- [Использование уверенности Needle](https://cactuscompute.com/blog/needle-confidence): что измеряет оценка, что движок скрывает, и маршрутизация на действие, подтверждение или отказ.
+- [Структурированное JSON-извлечение с Needle](https://cactuscompute.com/blog/structured-extraction-with-needle): запись как единственный инструмент, типизированные результаты, классификация через enum.
+- [Тонкая настройка Needle](https://cactuscompute.com/blog/finetuning-needle): формат данных, команды, чтение лосса, размер датасета.
+- [Документация Needle на Python](https://cactuscompute.com/blog/needle-python-docs): API, форма ответа, контракт поведения, системные факты, поиск инструментов, офлайн-устройства, окружения, CLI.
+- [Какие устройства поддерживаются в Needle](https://cactuscompute.com/blog/needle-supported-devices): каждая папка платформы, раннер CLI, C API, браузер, WASI, установка без сети.
+- [Формат .cact](https://cactuscompute.com/blog/cact-format): файл, который движок отображает на память и читает на месте, Cactus Quants при 2,125 битах на вес, и как разобрать его самостоятельно.
+- [Портирование Needle 3](https://cactuscompute.com/blog/porting-needle): заметки для написания собственного рантайма, оракул для проверки, порядок тензоров, который гарантирует контейнер, промпт «на проводе», правило лестницы, поиск через `needle_embed`.
 
-`llms.txt` in this repo carries the same reference for AI coding assistants.
+Файл `llms.txt` в этом репозитории содержит ту же справочную информацию для AI-ассистентов по коду.
 
-## Customisation
+## Кастомизация
 
-Needle was designed to be customised. Its capacity is a ladder, and a subnetwork as small as 2 layers, fine-tuned on one product's tools, runs optimally on devices far smaller than the full model needs. Fine-tuning on DroidCall lifts every subnetwork by 18 to 36 points, and from 4 layers up the tuned subnetwork passes DeepSeek V4 Flash, starting at 29M parameters.
+Needle спроектирована так, чтобы её настраивали под себя. Её ёмкость — это лестница, и подобная сеть из всего 2 слоёв, тонко настроенная на инструментах одного продукта, оптимально работает на устройствах, которые намного меньше, чем требует полная модель. Тонкая настройка на DroidCall поднимает каждую подсеть на 18–36 пунктов, а начиная с 4 слоёв настроенная подсеть обходит DeepSeek V4 Flash, начиная с 29M параметров.
 
-![Every subnetwork before and after fine-tuning on DroidCall and on Mobile Actions](assets/finetune.svg)
+![Каждая подсеть до и после тонкой настройки на DroidCall и Mobile Actions](assets/finetune.svg)
 
-Two ways to fine-tune, from the same package:
+Два способа тонкой настройки — из одного и того же пакета:
 
-| | Local, `needle finetune` | Platform, `needle platform finetune` |
+| | Локально, `needle finetune` | Платформа, `needle platform finetune` |
 | --- | --- | --- |
-| What trains | LoRA adapters on the attention projections, base frozen, merged at export | The full model, every depth from 2 layers up |
-| What it keeps | Your data only | Your data reinforced with Needle's original dataset, so nothing already learned is unlearned |
-| Confidence | Head untouched; `confidence` is `None` | Head fine-tuned with the model, calibrated on your tools |
-| Precision | 4-bit | 2-bit, the same post-training as the shipped model |
-| Data | Your JSONL, `query`/`answers` or chat format | Yours, or generated from your tool definitions, 100 to 10,000 examples per run |
-| Scores | Validation loss | Validation and test accuracy for every depth |
-| Compute | Your machine, JAX on CPU, CUDA or Metal | Cactus GPUs |
-| Runs from | The CLI | The CLI, Python, the [dashboard](https://cactuscompute.com/dashboard), or a coding agent holding your key |
+| Что обучается | LoRA-адаптеры на проекциях внимания, база заморожена, сливается при экспорте | Полная модель, каждая глубина начиная с 2 слоёв |
+| Что сохраняется | Только ваши данные | Ваши данные, подкреплённые исходным датасетом Needle, чтобы ранее изученное не забывалось |
+| Уверенность | Головка не трогается; `confidence` равна `None` | Головка дообучается вместе с моделью, калибруется на ваших инструментах |
+| Точность | 4 бита | 2 бита, такое же пост-обучение, как у поставляемой модели |
+| Данные | Ваш JSONL, формат `query`/`answers` или чат-формат | Ваши или сгенерированные из ваших определений инструментов, от 100 до 10 000 примеров за запуск |
+| Метрики | Валидационный лосс | Точность на валидации и тесте для каждой глубины |
+| Вычисления | Ваша машина, JAX на CPU, CUDA или Metal | GPU Cactus |
+| Запускается из | CLI | CLI, Python, [дашборда](https://cactuscompute.com/dashboard) или кодового агента с вашим ключом |
 
-Local:
+Локально:
 
 ```sh
 pip install "cactus-needle[train]"
@@ -83,7 +83,7 @@ needle finetune data.jsonl --epochs 10 --out adapter.safetensors
 needle build --lora adapter.safetensors --layers 8 --out tuned.cact
 ```
 
-Platform, with a key from the [console](https://cactuscompute.com/dashboard/api-keys) in `NEEDLE_API_KEY`. One command uploads the files, trains and scores every size, and downloads the `.cact` files; once a job is submitted it can also be followed on the dashboard:
+Платформа — с ключом из [консоли](https://cactuscompute.com/dashboard/api-keys) в `NEEDLE_API_KEY`. Одна команда загружает файлы, обучает и оценивает каждый размер и скачивает `.cact`-файлы; после отправки задания за ним можно также следить на дашборде:
 
 ```sh
 export NEEDLE_API_KEY=needle_ft_...
@@ -99,13 +99,13 @@ job = client.wait(client.finetune(["train.jsonl"], ["validation.jsonl"], ["test.
 paths = client.download(job["fine_tuned_model"], "models", depth=8)
 ```
 
-Or hand the key to Claude Code or Codex with [cactuscompute.com/llms.txt](https://cactuscompute.com/llms.txt) and let the agent run the loop. `needle platform jobs | models | files | billing` list what the account holds, `needle download model-<id>` fetches a model by id, and the [fine-tuning guide](https://cactuscompute.com/blog/finetuning-needle) covers the data format and how to read the scores.
+Или передайте ключ Claude Code или Codex вместе с [cactuscompute.com/llms.txt](https://cactuscompute.com/llms.txt) и позвольте агенту выполнить весь цикл. `needle platform jobs | models | files | billing` показывают, что хранится в аккаунте, `needle download model-<id>` загружает модель по id, а [руководство по тонкой настройке](https://cactuscompute.com/blog/finetuning-needle) описывает формат данных и чтение метрик.
 
-## Deploy
+## Развёртывание
 
-Every deployment target ships a prebuilt engine under 1 MB that loads the `needle3.cact` weights at start. `needle build --platform <folder> [--layers N]` fetches that engine and puts the weights beside it.
+Каждая цель развёртывания поставляет предсобранный движок менее 1 МБ, который при старте загружает веса `needle3.cact`. `needle build --platform <папка> [--layers N]` загружает этот движок и кладёт веса рядом с ним.
 
-![One engine per platform folder](assets/deploy.svg)
+![Один движок на папку платформы](assets/deploy.svg)
 
 ```sh
 needle build --platform macos-arm64
@@ -113,13 +113,13 @@ needle build --platform linux-arm64 --layers 8 --out ./pi
 ./macos-arm64/needle --model needle3.cact --tools tools.json --serve
 ```
 
-The [devices guide](https://cactuscompute.com/blog/needle-supported-devices) lists every folder and what ships in it.
+[Руководство по устройствам](https://cactuscompute.com/blog/needle-supported-devices) перечисляет все папки и их содержимое.
 
-By default, telemetry is turned on in the binary. To turn it off, set environment variables NEEDLE_TELEMETRY=0 and DO_NOT_TRACK=1. 
+По умолчанию телеметрия в двоичном файле включена. Чтобы выключить её, установите переменные окружения NEEDLE_TELEMETRY=0 и DO_NOT_TRACK=1.
 
-## Citation
+## Цитирование
 
-Needle is built by the Cactus Compute team. If you use it in your work, please cite:
+Needle создана командой Cactus Compute. Если вы используете её в своей работе, пожалуйста, цитируйте:
 
 ```bibtex
 @misc{needle3_2026,

@@ -12,15 +12,15 @@ for candidate in python3.12 python3.11 python3.10 python3.9 python3; do
     fi
 done
 if [ -z "$PYTHON" ]; then
-    echo "Python >= 3.9 is required." >&2
+    echo "Требуется Python версии 3.9 или новее." >&2
     exit 1
 fi
 
-# Use uv when available (10-100x faster), fall back to pip.
+# Используем uv, если он доступен (в 10-100 раз быстрее), иначе — pip.
 UV_INSTALL="pip install"
 UV_VENV="$PYTHON -m venv"
 if command -v uv >/dev/null 2>&1; then
-    echo "  uv detected — using uv for package management"
+    echo "  обнаружен uv — использую uv для управления пакетами"
     UV_INSTALL="uv pip install"
     UV_VENV="uv venv"
 fi
@@ -34,7 +34,7 @@ fi
 $UV_INSTALL -e ".[train]" -q
 
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-    echo "NVIDIA GPU detected; installing gpu extras..."
+    echo "Обнаружен NVIDIA GPU; устанавливаю дополнительные пакеты gpu..."
     $UV_INSTALL -e ".[gpu]" -q
 fi
 

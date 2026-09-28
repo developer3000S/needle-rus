@@ -1,2 +1,2 @@
-# Runtime dependencies
+# Зависимости времени выполнения
 huggingface_hub
